@@ -1,9 +1,12 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:signlingo_1/utils/app_themes.dart';
 import 'package:signlingo_1/widgets/translation_history_item.dart';
-import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
 
 class TranslateScreen extends StatefulWidget {
   const TranslateScreen({Key? key}) : super(key: key);
@@ -16,13 +19,16 @@ class _TranslateScreenState extends State<TranslateScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _textController = TextEditingController();
+
   bool _isRecording = false;
   bool _isTranslating = false;
   bool _isCameraMode = false;
   CameraController? _cameraController;
   List<CameraDescription> cameras = [];
+  String _livePreviewText = '';
 
-  // Lista de historiales de traducción (simulados)
+
+  // Lista de historiales de traducción
   final List<TranslationHistoryItem> _historyItems = [
     TranslationHistoryItem(
       originalText: 'Hola, ¿cómo estás?',
@@ -65,11 +71,14 @@ class _TranslateScreenState extends State<TranslateScreen>
 
   Future<void> _toggleCameraMode() async {
     if (_isCameraMode) {
+      // Desactivar cámara
       setState(() {
         _isCameraMode = false;
         _cameraController?.dispose();
+        _cameraController = null;
       });
     } else {
+      // Solicitar permiso y activar cámara
       final status = await Permission.camera.request();
       if (status.isGranted) {
         if (_cameraController == null) {
@@ -88,41 +97,107 @@ class _TranslateScreenState extends State<TranslateScreen>
     }
   }
 
-  void _toggleRecording() {
-    setState(() {
-      _isRecording = !_isRecording;
-    });
+  /// Toma una foto con la cámara activa, la convierte a Base64
+  /// y hace la petición POST a Roboflow. Devuelve la clase detectada.
+  Future<String> _callSignRecognitionAPI() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return 'Cámara no disponible';
+    }
 
-    if (_isRecording) {
-      // Simular reconocimiento después de 3 segundos
-      Timer(const Duration(seconds: 3), () {
-        if (mounted && _isRecording) {
-          setState(() {
-            _isRecording = false;
-            _isTranslating = true;
-          });
+    try {
+      // 1. Tomar una foto
+      final XFile rawImage = await _cameraController!.takePicture();
+      final bytes = await rawImage.readAsBytes();
+      final base64Image = base64Encode(bytes);
 
-          // Simular proceso de traducción
-          Timer(const Duration(seconds: 2), () {
-            if (mounted) {
-              setState(() {
-                _isTranslating = false;
-                // Aquí se añadiría el resultado al historial
-                _historyItems.insert(
-                  0,
-                  TranslationHistoryItem(
-                    originalText: "Gracias por usar SignLingo",
-                    translationType: TranslationType.signToText,
-                    timestamp: DateTime.now(),
-                  ),
-                );
-              });
-            }
-          });
+      // 2. Construir la URL con tu API key
+      final uri = Uri.parse(
+        'https://detect.roboflow.com/american-sign-language-v36cz/1?api_key=VBpTkFBTwED0IYlB4Jau&name=FRAME.jpg',
+      );
+
+      // 3. Enviar la petición POST
+      final response = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: base64Image,
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+
+        // Asumimos que "predictions" es una lista de objetos con clave "class"
+        final predictions = jsonResponse['predictions'] as List<dynamic>?;
+        if (predictions != null && predictions.isNotEmpty) {
+          // Solo devolvemos la clase detectada, sin prefijo
+          return predictions[0]['class']?.toString() ?? 'Sin resultado';
+        } else {
+          return 'Sin resultado';
         }
-      });
+      } else {
+        return 'Error API: ${response.statusCode}';
+      }
+    } catch (e) {
+      debugPrint('Error al llamar a la API: $e');
+      return 'Error en la traducción';
     }
   }
+
+
+  void _toggleRecording() async {
+    if (_isRecording) {
+      setState(() {
+        _isRecording = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isRecording = true;
+      _isTranslating = true;
+    });
+
+    List<String> detectedSigns = [];
+
+    while (_isRecording && mounted) {
+      final detectedClass = await _callSignRecognitionAPI();
+
+      if (!_isRecording || !mounted) break;
+
+      // Solo añadir si no es "Sin resultado"
+      if (detectedClass != 'Sin resultado') {
+        detectedSigns.add(detectedClass);
+        setState(() {
+          _livePreviewText = detectedSigns.join(' ');
+        });
+      }
+
+
+      await Future.delayed(const Duration(seconds: 2));
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _isTranslating = false;
+      _isRecording = false;
+      _livePreviewText = '';
+
+      if (detectedSigns.isNotEmpty) {
+        final combinedResult = detectedSigns.join(' ');
+        _historyItems.insert(
+          0,
+          TranslationHistoryItem(
+            originalText: combinedResult,
+            translationType: TranslationType.signToText,
+            timestamp: DateTime.now(),
+          ),
+        );
+      }
+    });
+  }
+
+
+
 
   void _translateText() {
     if (_textController.text.isNotEmpty) {
@@ -130,23 +205,21 @@ class _TranslateScreenState extends State<TranslateScreen>
         _isTranslating = true;
       });
 
-      // Simular proceso de traducción
-      Timer(const Duration(seconds: 2), () {
-        if (mounted) {
-          setState(() {
-            _isTranslating = false;
-            // Aquí se añadiría el resultado al historial
-            _historyItems.insert(
-              0,
-              TranslationHistoryItem(
-                originalText: _textController.text,
-                translationType: TranslationType.textToSign,
-                timestamp: DateTime.now(),
-              ),
-            );
-            _textController.clear();
-          });
-        }
+      // Simular proceso de traducción de texto a señas
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        setState(() {
+          _isTranslating = false;
+          _historyItems.insert(
+            0,
+            TranslationHistoryItem(
+              originalText: _textController.text,
+              translationType: TranslationType.textToSign,
+              timestamp: DateTime.now(),
+            ),
+          );
+          _textController.clear();
+        });
       });
     }
   }
@@ -209,7 +282,7 @@ class _TranslateScreenState extends State<TranslateScreen>
                     maxLines: 4,
                     decoration: const InputDecoration(
                       hintText:
-                          'Escribe aquí el texto que deseas traducir a señas...',
+                      'Escribe aquí el texto que deseas traducir a señas...',
                       border: InputBorder.none,
                     ),
                   ),
@@ -231,11 +304,11 @@ class _TranslateScreenState extends State<TranslateScreen>
                           onPressed: _isTranslating ? null : _translateText,
                           child: _isTranslating
                               ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
+                            height: 20,
+                            width: 20,
+                            child:
+                            CircularProgressIndicator(strokeWidth: 2),
+                          )
                               : const Text('Traducir'),
                         ),
                       ),
@@ -261,17 +334,17 @@ class _TranslateScreenState extends State<TranslateScreen>
           Expanded(
             child: _historyItems.isEmpty
                 ? const Center(
-                    child: Text('No hay traducciones recientes'),
-                  )
+              child: Text('No hay traducciones recientes'),
+            )
                 : ListView.separated(
-                    itemCount: _historyItems.length,
-                    separatorBuilder: (context, index) => const Divider(),
-                    itemBuilder: (context, index) {
-                      return TranslationHistoryItemWidget(
-                        item: _historyItems[index],
-                      );
-                    },
-                  ),
+              itemCount: _historyItems.length,
+              separatorBuilder: (context, index) => const Divider(),
+              itemBuilder: (context, index) {
+                return TranslationHistoryItemWidget(
+                  item: _historyItems[index],
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -288,27 +361,47 @@ class _TranslateScreenState extends State<TranslateScreen>
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Container(
-              height: 300,
-              width: double.infinity,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: _isCameraMode &&
-                      _cameraController != null &&
-                      _cameraController!.value.isInitialized
-                  ? CameraPreview(_cameraController!)
-                  : Container(
-                      color: Colors.black87,
-                      child: const Center(
+            clipBehavior: Clip.antiAlias,
+            child: _isCameraMode &&
+                _cameraController != null &&
+                _cameraController!.value.isInitialized
+                ? AspectRatio(
+              aspectRatio: _cameraController!.value.aspectRatio,
+              child: Stack(
+                children: [
+                  CameraPreview(_cameraController!),
+                  if (_livePreviewText.isNotEmpty)
+                    Positioned(
+                      bottom: 16,
+                      left: 16,
+                      right: 16,
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         child: Text(
-                          'Activa la cámara para comenzar a traducir señas',
-                          style: TextStyle(color: Colors.white),
+                          _livePreviewText,
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 16),
                           textAlign: TextAlign.center,
                         ),
                       ),
                     ),
+                ],
+              ),
+            )
+                : Container(
+              height: 300,
+              color: Colors.black87,
+              child: const Center(
+                child: Text(
+                  'Activa la cámara para comenzar a traducir señas',
+                  style: TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -317,23 +410,23 @@ class _TranslateScreenState extends State<TranslateScreen>
             children: [
               ElevatedButton.icon(
                 onPressed: _toggleCameraMode,
-                icon:
-                    Icon(_isCameraMode ? Icons.videocam_off : Icons.camera_alt),
+                icon: Icon(
+                    _isCameraMode ? Icons.videocam_off : Icons.camera_alt),
                 label: Text(_isCameraMode ? 'Desactivar' : 'Activar cámara'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor:
-                      _isCameraMode ? Colors.red : AppColors.accentColor,
+                  _isCameraMode ? Colors.red : AppColors.accentColor,
                 ),
               ),
               if (_isCameraMode)
                 ElevatedButton.icon(
-                  onPressed: _isTranslating ? null : _toggleRecording,
-                  icon:
-                      Icon(_isRecording ? Icons.stop : Icons.record_voice_over),
+                  onPressed: _toggleRecording,
+                  icon: Icon(
+                      _isRecording ? Icons.stop : Icons.record_voice_over),
                   label: Text(_isRecording ? 'Detener' : 'Reconocer señas'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
-                        _isRecording ? Colors.red : AppColors.primaryColor,
+                    _isRecording ? Colors.red : AppColors.primaryColor,
                   ),
                 ),
             ],
@@ -365,17 +458,17 @@ class _TranslateScreenState extends State<TranslateScreen>
           Expanded(
             child: _historyItems.isEmpty
                 ? const Center(
-                    child: Text('No hay traducciones recientes'),
-                  )
+              child: Text('No hay Traducciones Recientes'),
+            )
                 : ListView.separated(
-                    itemCount: _historyItems.length,
-                    separatorBuilder: (context, index) => const Divider(),
-                    itemBuilder: (context, index) {
-                      return TranslationHistoryItemWidget(
-                        item: _historyItems[index],
-                      );
-                    },
-                  ),
+              itemCount: _historyItems.length,
+              separatorBuilder: (context, index) => const Divider(),
+              itemBuilder: (context, index) {
+                return TranslationHistoryItemWidget(
+                  item: _historyItems[index],
+                );
+              },
+            ),
           ),
         ],
       ),

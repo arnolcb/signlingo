@@ -107,13 +107,6 @@ class AppThemes {
       ),
       hintStyle: const TextStyle(color: AppColors.lightGrey),
     ),
-    cardTheme: CardTheme(
-      color: AppColors.whiteColor,
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-    ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: AppColors.whiteColor,
       selectedItemColor: AppColors.accentColor,
@@ -205,13 +198,6 @@ class AppThemes {
         borderSide: const BorderSide(color: AppColors.errorColor, width: 1),
       ),
       hintStyle: const TextStyle(color: AppColors.lightGrey),
-    ),
-    cardTheme: CardTheme(
-      color: const Color(0xFF202020),
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: Color(0xFF202020),

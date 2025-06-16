@@ -30,7 +30,7 @@ class TranslationHistoryItemWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat.yMMMd().add_Hm();
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
@@ -59,10 +59,12 @@ class TranslationHistoryItemWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
+                  // Aquí se mostrará la letra (ej. "A")
                   item.originalText,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
+                    color: Colors.blue
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -89,7 +91,7 @@ class TranslationHistoryItemWidget extends StatelessWidget {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: AppColors.lightGrey),
             onSelected: (value) {
-              // Implementar acciones
+              // Implementar acciones: copiar, compartir, eliminar…
             },
             itemBuilder: (context) => [
               const PopupMenuItem(

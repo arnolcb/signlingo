@@ -12,66 +12,96 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int _selectedIndex = 1; // Iniciar en la sección de Traducir
-  
-  final List<Widget> _screens = [
-    const LearnScreen(),
-    const TranslateScreen(),
-    const SettingsScreen(),
+  int _selectedIndex = 1; // Traducir por defecto
+
+  final List<Widget> _screens = const [
+    LearnScreen(),
+    TranslateScreen(),
+    SettingsScreen(),
   ];
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  BottomNavigationBarItem _buildBottomNavigationBarItem({
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required int index,
+  }) {
+    return BottomNavigationBarItem(
+      icon: Icon(
+        icon,
+        color: _selectedIndex == index ? AppColors.accentColor : Colors.grey,
+      ),
+      activeIcon: Icon(
+        activeIcon,
+        color: AppColors.accentColor,
+      ),
+      label: label,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_selectedIndex],
+      backgroundColor: const Color(0xFF121212), // Fondo oscuro
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withOpacity(0.2),
               blurRadius: 10,
-              offset: const Offset(0, -5),
+              offset: const Offset(0, -4),
             ),
           ],
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
+          onTap: _onItemTapped,
+          backgroundColor: const Color(0xFF1E1E1E),
+          selectedItemColor: AppColors.accentColor,
+          unselectedItemColor: Colors.grey,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          showUnselectedLabels: true,
+          type: BottomNavigationBarType.fixed,
           items: [
-            BottomNavigationBarItem(
-              icon: Icon(
-                Icons.school_outlined,
-                color: _selectedIndex == 0 ? AppColors.accentColor : AppColors.lightGrey,
-              ),
+            _buildBottomNavigationBarItem(
+              icon: Icons.school_outlined,
+              activeIcon: Icons.school,
               label: 'Aprender',
-              activeIcon: const Icon(Icons.school, color: AppColors.accentColor),
+              index: 0,
             ),
             BottomNavigationBarItem(
               icon: Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: _selectedIndex == 1 ? AppColors.accentColor : AppColors.lightGrey,
+                  color: _selectedIndex == 1
+                      ? AppColors.accentColor
+                      : Colors.grey.shade700,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.translate,
                   color: Colors.white,
-                  size: 24,
+                  size: 26,
                 ),
               ),
               label: 'Traducir',
             ),
-            BottomNavigationBarItem(
-              icon: Icon(
-                Icons.settings_outlined,
-                color: _selectedIndex == 2 ? AppColors.accentColor : AppColors.lightGrey,
-              ),
+            _buildBottomNavigationBarItem(
+              icon: Icons.settings_outlined,
+              activeIcon: Icons.settings,
               label: 'Configuración',
-              activeIcon: const Icon(Icons.settings, color: AppColors.accentColor),
+              index: 2,
             ),
           ],
         ),

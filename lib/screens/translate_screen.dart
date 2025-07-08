@@ -7,6 +7,7 @@ import 'package:signlingo_1/widgets/translation_history_item.dart';
 import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
+import 'package:google_fonts/google_fonts.dart';
 
 class TranslateScreen extends StatefulWidget {
   const TranslateScreen({Key? key}) : super(key: key);
@@ -15,8 +16,7 @@ class TranslateScreen extends StatefulWidget {
   State<TranslateScreen> createState() => _TranslateScreenState();
 }
 
-class _TranslateScreenState extends State<TranslateScreen>
-    with SingleTickerProviderStateMixin {
+class _TranslateScreenState extends State<TranslateScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _textController = TextEditingController();
 
@@ -27,8 +27,6 @@ class _TranslateScreenState extends State<TranslateScreen>
   List<CameraDescription> cameras = [];
   String _livePreviewText = '';
 
-
-  // Lista de historiales de traducción
   final List<TranslationHistoryItem> _historyItems = [
     TranslationHistoryItem(
       originalText: 'Hola, ¿cómo estás?',
@@ -71,14 +69,12 @@ class _TranslateScreenState extends State<TranslateScreen>
 
   Future<void> _toggleCameraMode() async {
     if (_isCameraMode) {
-      // Desactivar cámara
       setState(() {
         _isCameraMode = false;
         _cameraController?.dispose();
         _cameraController = null;
       });
     } else {
-      // Solicitar permiso y activar cámara
       final status = await Permission.camera.request();
       if (status.isGranted) {
         if (_cameraController == null) {
@@ -97,25 +93,20 @@ class _TranslateScreenState extends State<TranslateScreen>
     }
   }
 
-  /// Toma una foto con la cámara activa, la convierte a Base64
-  /// y hace la petición POST a Roboflow. Devuelve la clase detectada.
   Future<String> _callSignRecognitionAPI() async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return 'Cámara no disponible';
     }
 
     try {
-      // 1. Tomar una foto
       final XFile rawImage = await _cameraController!.takePicture();
       final bytes = await rawImage.readAsBytes();
       final base64Image = base64Encode(bytes);
 
-      // 2. Construir la URL con tu API key
       final uri = Uri.parse(
-        'https://detect.roboflow.com/american-sign-language-v36cz/1?api_key=VBpTkFBTwED0IYlB4Jau&name=FRAME.jpg',
+        'https://serverless.roboflow.com/singm8v2/1?api_key=VBpTkFBTwED0IYlB4Jau',
       );
 
-      // 3. Enviar la petición POST
       final response = await http.post(
         uri,
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -124,11 +115,8 @@ class _TranslateScreenState extends State<TranslateScreen>
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
-
-        // Asumimos que "predictions" es una lista de objetos con clave "class"
         final predictions = jsonResponse['predictions'] as List<dynamic>?;
         if (predictions != null && predictions.isNotEmpty) {
-          // Solo devolvemos la clase detectada, sin prefijo
           return predictions[0]['class']?.toString() ?? 'Sin resultado';
         } else {
           return 'Sin resultado';
@@ -141,7 +129,6 @@ class _TranslateScreenState extends State<TranslateScreen>
       return 'Error en la traducción';
     }
   }
-
 
   void _toggleRecording() async {
     if (_isRecording) {
@@ -163,14 +150,12 @@ class _TranslateScreenState extends State<TranslateScreen>
 
       if (!_isRecording || !mounted) break;
 
-      // Solo añadir si no es "Sin resultado"
       if (detectedClass != 'Sin resultado') {
         detectedSigns.add(detectedClass);
         setState(() {
           _livePreviewText = detectedSigns.join(' ');
         });
       }
-
 
       await Future.delayed(const Duration(seconds: 2));
     }
@@ -196,16 +181,12 @@ class _TranslateScreenState extends State<TranslateScreen>
     });
   }
 
-
-
-
   void _translateText() {
     if (_textController.text.isNotEmpty) {
       setState(() {
         _isTranslating = true;
       });
 
-      // Simular proceso de traducción de texto a señas
       Future.delayed(const Duration(seconds: 2), () {
         if (!mounted) return;
         setState(() {
@@ -235,11 +216,14 @@ class _TranslateScreenState extends State<TranslateScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0D1B2A),
       appBar: AppBar(
-        title: const Text(
-          'SignLingo',
-          style: TextStyle(
+        backgroundColor: const Color(0xFF1B263B),
+        title: Text(
+          'EchoSigns',
+          style: GoogleFonts.poppins(
             fontWeight: FontWeight.bold,
+            color: Colors.white,
           ),
         ),
         bottom: TabBar(
@@ -248,9 +232,10 @@ class _TranslateScreenState extends State<TranslateScreen>
             Tab(text: 'Texto a Señas'),
             Tab(text: 'Señas a Texto'),
           ],
-          labelColor: AppColors.whiteColor,
-          unselectedLabelColor: AppColors.whiteColor.withOpacity(0.7),
-          indicatorColor: AppColors.accentColor,
+          labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+          labelColor: Colors.lightBlueAccent,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.lightBlueAccent,
         ),
       ),
       body: TabBarView(
@@ -269,6 +254,7 @@ class _TranslateScreenState extends State<TranslateScreen>
       child: Column(
         children: [
           Card(
+            color: const Color(0xFF1B263B),
             elevation: 4,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -280,9 +266,10 @@ class _TranslateScreenState extends State<TranslateScreen>
                   TextField(
                     controller: _textController,
                     maxLines: 4,
-                    decoration: const InputDecoration(
-                      hintText:
-                      'Escribe aquí el texto que deseas traducir a señas...',
+                    style: GoogleFonts.poppins(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Escribe aquí el texto que deseas traducir a señas...',
+                      hintStyle: TextStyle(color: Colors.white70),
                       border: InputBorder.none,
                     ),
                   ),
@@ -291,24 +278,22 @@ class _TranslateScreenState extends State<TranslateScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        onPressed: () {
-                          // Implementar función de micrófono (texto por voz)
-                        },
-                        icon: const Icon(Icons.mic,
-                            color: AppColors.primaryColor),
+                        onPressed: () {},
+                        icon: const Icon(Icons.mic, color: Colors.lightBlueAccent),
                       ),
                       SizedBox(
                         height: 50,
                         width: 140,
                         child: ElevatedButton(
                           onPressed: _isTranslating ? null : _translateText,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.lightBlueAccent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                           child: _isTranslating
-                              ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child:
-                            CircularProgressIndicator(strokeWidth: 2),
-                          )
+                              ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
                               : const Text('Traducir'),
                         ),
                       ),
@@ -319,30 +304,26 @@ class _TranslateScreenState extends State<TranslateScreen>
             ),
           ),
           const SizedBox(height: 24),
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'Historial',
-              style: TextStyle(
+              style: GoogleFonts.poppins(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppColors.primaryColor,
+                color: Colors.white,
               ),
             ),
           ),
           const SizedBox(height: 16),
           Expanded(
             child: _historyItems.isEmpty
-                ? const Center(
-              child: Text('No hay traducciones recientes'),
-            )
+                ? const Center(child: Text('No hay traducciones recientes', style: TextStyle(color: Colors.white70)))
                 : ListView.separated(
               itemCount: _historyItems.length,
-              separatorBuilder: (context, index) => const Divider(),
+              separatorBuilder: (context, index) => const Divider(color: Colors.white24),
               itemBuilder: (context, index) {
-                return TranslationHistoryItemWidget(
-                  item: _historyItems[index],
-                );
+                return TranslationHistoryItemWidget(item: _historyItems[index]);
               },
             ),
           ),
@@ -357,14 +338,13 @@ class _TranslateScreenState extends State<TranslateScreen>
       child: Column(
         children: [
           Card(
+            color: const Color(0xFF1B263B),
             elevation: 4,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
             clipBehavior: Clip.antiAlias,
-            child: _isCameraMode &&
-                _cameraController != null &&
-                _cameraController!.value.isInitialized
+            child: _isCameraMode && _cameraController != null && _cameraController!.value.isInitialized
                 ? AspectRatio(
               aspectRatio: _cameraController!.value.aspectRatio,
               child: Stack(
@@ -383,8 +363,7 @@ class _TranslateScreenState extends State<TranslateScreen>
                         ),
                         child: Text(
                           _livePreviewText,
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 16),
+                          style: GoogleFonts.poppins(color: Colors.white),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -410,23 +389,19 @@ class _TranslateScreenState extends State<TranslateScreen>
             children: [
               ElevatedButton.icon(
                 onPressed: _toggleCameraMode,
-                icon: Icon(
-                    _isCameraMode ? Icons.videocam_off : Icons.camera_alt),
+                icon: Icon(_isCameraMode ? Icons.videocam_off : Icons.camera_alt),
                 label: Text(_isCameraMode ? 'Desactivar' : 'Activar cámara'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                  _isCameraMode ? Colors.red : AppColors.accentColor,
+                  backgroundColor: _isCameraMode ? Colors.red : Colors.lightBlueAccent,
                 ),
               ),
               if (_isCameraMode)
                 ElevatedButton.icon(
                   onPressed: _toggleRecording,
-                  icon: Icon(
-                      _isRecording ? Icons.stop : Icons.record_voice_over),
+                  icon: Icon(_isRecording ? Icons.stop : Icons.record_voice_over),
                   label: Text(_isRecording ? 'Detener' : 'Reconocer señas'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                    _isRecording ? Colors.red : AppColors.primaryColor,
+                    backgroundColor: _isRecording ? Colors.red : AppColors.primaryColor,
                   ),
                 ),
             ],
@@ -438,35 +413,31 @@ class _TranslateScreenState extends State<TranslateScreen>
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(height: 8),
-                  Text('Traduciendo señas...'),
+                  Text('Traduciendo señas...', style: TextStyle(color: Colors.white)),
                 ],
               ),
             ),
           const SizedBox(height: 24),
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: Text(
               'Historial',
-              style: TextStyle(
+              style: GoogleFonts.poppins(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: AppColors.primaryColor,
+                color: Colors.white,
               ),
             ),
           ),
           const SizedBox(height: 16),
           Expanded(
             child: _historyItems.isEmpty
-                ? const Center(
-              child: Text('No hay Traducciones Recientes'),
-            )
+                ? const Center(child: Text('No hay Traducciones Recientes', style: TextStyle(color: Colors.white70)))
                 : ListView.separated(
               itemCount: _historyItems.length,
-              separatorBuilder: (context, index) => const Divider(),
+              separatorBuilder: (context, index) => const Divider(color: Colors.white24),
               itemBuilder: (context, index) {
-                return TranslationHistoryItemWidget(
-                  item: _historyItems[index],
-                );
+                return TranslationHistoryItemWidget(item: _historyItems[index]);
               },
             ),
           ),

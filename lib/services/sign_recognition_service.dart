@@ -14,7 +14,7 @@ class SignRecognitionService {
       final base64Image = base64Encode(bytes);
 
       final uri = Uri.parse(
-        'https://detect.roboflow.com/american-sign-language-v36cz/1?api_key=VBpTkFBTwED0IYlB4Jau&name=FRAME.jpg',
+        'https://detect.roboflow.com/majorproject-uqrwi/asl-835ue/1?api_key=VBpTkFBTwED0IYlB4Jau&name=FRAME.jpg',
       );
 
       final response = await http.post(
